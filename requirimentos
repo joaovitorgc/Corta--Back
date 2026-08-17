@@ -1,0 +1,13 @@
+flask
+pyjwt
+fdb
+flask-bcrypt
+flask-cors
+datetime
+emoji
+logging
+validate-docbr
+fpdf
+pypix
+qrcode
+image
