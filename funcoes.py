@@ -1,13 +1,14 @@
 from flask import Flask, jsonify, request, render_template
 from flask_bcrypt import generate_password_hash, check_password_hash
-import smtplib
-from email.mime.text import MIMEText
+
 import jwt
 import re
 import random
 from main import app
 from flask_bcrypt import Bcrypt
 
+import smtplib
+from email.mime.text import MIMEText
 
 bcrypt = Bcrypt()
 
@@ -73,16 +74,12 @@ def gerar_codigo_verificacao():
 # ENVIAR EMAIL
 # =========================================
 
-import smtplib
-from email.mime.text import MIMEText
-
-
 def enviando_email(
     destinatario,
     assunto,
     mensagem,
-    codigo,
     nome,
+    codigo,
     mensagem_secundaria
 ):
 
@@ -91,16 +88,18 @@ def enviando_email(
 
     try:
 
+        # Renderiza o HTML e substitui as variáveis
         with app.app_context():
 
             html = render_template(
                 "ativacao.html",
+                nome=nome,
                 mensagem=mensagem,
                 codigo=codigo,
-                nome=nome,
                 mensagem_secundaria=mensagem_secundaria
             )
 
+        # Cria o email
         msg = MIMEText(
             html,
             "html",
@@ -111,38 +110,31 @@ def enviando_email(
         msg["From"] = user
         msg["To"] = destinatario
 
-        print("Conectando ao Gmail...")
-
-        with smtplib.SMTP(
+        # Conexão com Gmail
+        server = smtplib.SMTP_SSL(
             "smtp.gmail.com",
-            587,
+            465,
             timeout=60
-        ) as server:
+        )
 
-            server.ehlo()
+        # Login
+        server.login(
+            user,
+            senha
+        )
 
-            print("Iniciando TLS...")
-            server.starttls()
+        # Envio
+        server.send_message(msg)
 
-            server.ehlo()
+        # Fecha conexão
+        server.quit()
 
-            print("Fazendo login...")
-            server.login(user, senha)
+        print("Email enviado com sucesso!")
 
-            print("Enviando email...")
-
-            server.send_message(msg)
-
-            print("Email enviado com sucesso!")
-
-    except smtplib.SMTPAuthenticationError as e:
-        print("Erro de autenticação:", e)
-
-    except smtplib.SMTPServerDisconnected as e:
-        print("Servidor desconectou:", e)
-
-    except smtplib.SMTPException as e:
-        print("Erro SMTP:", e)
+        return True
 
     except Exception as e:
+
         print("Erro ao enviar email:", e)
+
+        return False
