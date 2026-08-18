@@ -16,7 +16,8 @@ def login():
 
         if not dados:
             return jsonify({
-                'erro': 'Dados não enviados.'
+                'mensagem': {"informacao":'Dados não enviados.',
+                             "tipo":"erro"}
             }), 400
 
         email = dados.get('email')
@@ -24,12 +25,14 @@ def login():
 
         if not email:
             return jsonify({
-                'erro': 'O email é obrigatório.'
+                'mensagem': {"informacao":'O email é obrigatório.',
+                             "tipo":'erro'}
             }), 400
 
         if not senha:
             return jsonify({
-                'erro': 'A senha é obrigatória.'
+                'mensagem': {"informacao":'A senha é obrigatória.',
+                             "tipo":"erro"}
             }), 400
 
         # ==========================================
@@ -65,7 +68,8 @@ def login():
         if not usuario:
 
             return jsonify({
-                'erro': 'Email ou senha incorretos.'
+                'mensagem': {"informacao":'Email ou senha incorretos.',
+                             "tipo":"erro"}
             }), 401
 
         # ==========================================
@@ -87,7 +91,8 @@ def login():
         if email_confirmado != 1:
 
             return jsonify({
-                'erro': 'Confirme seu e-mail antes de fazer login.'
+                'mensagem': {"informacao":'Confirme seu e-mail antes de fazer login.',
+                             "tipo":"erro"}
             }), 403
 
         # ==========================================
@@ -97,7 +102,8 @@ def login():
         if ativo != 1:
 
             return jsonify({
-                'erro': 'Usuário inativo ou bloqueado.'
+                'mensagem': {"informacao":'Usuário inativo ou bloqueado.',
+                             "tipo":"erro"}
             }), 403
 
         # ==========================================
@@ -107,7 +113,8 @@ def login():
         if not verificar_senha(senha, senha_hash):
 
             return jsonify({
-                'erro': 'Email ou senha incorretos.'
+                'mensagem': {"informacao":'Email ou senha incorretos.',
+                             "tipo":"erro"}
             }), 401
 
         # ==========================================
@@ -130,7 +137,8 @@ def login():
         # ==========================================
 
         resposta = jsonify({
-            'mensagem': 'Login realizado com sucesso.',
+            'mensagem': {"informacao":'Login realizado com sucesso.',
+                         "tipo":"sucesso"},
             'usuario': {
                 'id': id_usuario,
                 'nome': nome,
@@ -158,6 +166,7 @@ def login():
         print('Erro no login:', e)
 
         return jsonify({
-            'erro': 'Erro interno no servidor.',
+            'mensagem': {"informacao":'Erro interno no servidor.',
+                         "tipo":"erro"},
             'detalhes': str(e)
         }), 500

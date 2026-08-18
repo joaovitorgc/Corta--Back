@@ -399,8 +399,9 @@ def verificar_codigo():
         if str(codigo) != str(codigo_banco):
 
             return jsonify({
-                'erro':
-                    'Código de verificação inválido.'
+                'mensagem':
+                    {"informacao":'Código de verificação inválido.',
+                     "tipo":'erro'}
             }), 400
 
         # ==========================================
@@ -444,3 +445,7 @@ def verificar_codigo():
 
         if con:
             con.close()
+
+
+
+

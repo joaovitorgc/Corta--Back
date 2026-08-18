@@ -131,6 +131,7 @@ def enviando_email(
 
         print("Email enviado com sucesso!")
 
+
         return True
 
     except Exception as e:
