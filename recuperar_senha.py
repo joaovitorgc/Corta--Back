@@ -31,8 +31,9 @@ def recuperar_senha():
         if not dados:
 
             return jsonify({
-                'erro':
-                    'Envie os dados em formato JSON.'
+                'mensagem':
+                    {"informacao":'Envie os dados em formato JSON.',
+                     "tipo":"erro"}
             }), 400
 
         # ==========================================
@@ -44,8 +45,9 @@ def recuperar_senha():
         if etapa is None:
 
             return jsonify({
-                'erro':
-                    'A etapa é obrigatória.'
+                'mensagem':
+                    {"informacao":'A etapa é obrigatória.',
+                     "tipo":"erro"}
             }), 400
 
         try:
@@ -55,15 +57,17 @@ def recuperar_senha():
         except (ValueError, TypeError):
 
             return jsonify({
-                'erro':
-                    'Etapa inválida.'
+                'mensagem':
+                    {"informacao":'Etapa inválida.',
+                     "tipo":"erro"}
             }), 400
 
         if etapa not in [1, 2, 3]:
 
             return jsonify({
-                'erro':
-                    'A etapa deve ser 1, 2 ou 3.'
+                'mensagem':
+                    {"informacao":'A etapa deve ser 1, 2 ou 3.',
+                     "tipo":"erro"}
             }), 400
 
 
@@ -79,8 +83,9 @@ def recuperar_senha():
             if not email:
 
                 return jsonify({
-                    'erro':
-                        'E-mail é obrigatório.'
+                    'mensagem':
+                        {"informacao":'E-mail é obrigatório.',
+                         "tipo":"erro"}
                 }), 400
 
             con = conectar_banco()
@@ -104,8 +109,9 @@ def recuperar_senha():
             if not usuario:
 
                 return jsonify({
-                    'erro':
-                        'E-mail não encontrado.'
+                    'mensagem':
+                        {"informacao":'E-mail não encontrado.',
+                         "tipo":'erro'}
                 }), 404
 
             id_usuario = usuario[0]
@@ -163,14 +169,14 @@ def recuperar_senha():
             if not email_enviado:
 
                 return jsonify({
-                    'erro':
-                        'Não foi possível enviar '
-                        'o código para o e-mail.'
+                    'mensagem':
+                        {"informacao":'Não foi possível enviar '
+                         'o código para o e-mail.',"tipo":"erro"}
                 }), 500
 
             return jsonify({
                 'mensagem':
-                    'Código enviado para o seu e-mail.',
+                    {"informacao":'Código enviado para o seu e-mail.',"tipo":"sucesso"},
                 'etapa':
                     2
             }), 200
@@ -189,8 +195,9 @@ def recuperar_senha():
             if not email:
 
                 return jsonify({
-                    'erro':
-                        'E-mail é obrigatório.'
+                    'mensagem':
+                        {"informacao":'E-mail é obrigatório.',
+                         "tipo":'erro'}
                 }), 400
 
             if not codigo:

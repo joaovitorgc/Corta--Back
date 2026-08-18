@@ -10,7 +10,8 @@ from funcoes import (
     verificar_senha_forte,
     criptografar_senha,
     gerar_codigo_verificacao,
-    enviando_email
+    enviando_email,
+    decodificar_token
 )
 
 
@@ -76,7 +77,8 @@ def cadastro():
 
         if not dados:
             return jsonify({
-                'erro': 'Envie os dados em formato JSON.'
+                'mensagem': {"informacao":'Envie os dados em formato JSON.',
+                             "tipo":"erro"}
             }), 400
 
         nome = dados.get('nome')
@@ -92,32 +94,38 @@ def cadastro():
 
         if not nome:
             return jsonify({
-                'erro': 'Nome é obrigatório.'
+                'mensagem': {"informacao":'Nome é obrigatório.',
+                             "tipo":"erro"}
             }), 400
 
         if not email:
             return jsonify({
-                'erro': 'E-mail é obrigatório.'
+                'mensagem': {"informacao":'E-mail é obrigatório.',
+                         "tipo":"erro"}
             }), 400
 
         if not telefone:
             return jsonify({
-                'erro': 'Telefone é obrigatório.'
+                'mensagem': {"informacao":'Telefone é obrigatório.',
+                         "tipo":"erro"}
             }), 400
 
         if not senha:
             return jsonify({
-                'erro': 'Senha é obrigatória.'
+                'mensagem': {"informacao":'Senha é obrigatória.',
+                             "tipo":"erro"}
             }), 400
 
         if not confirmar_senha:
             return jsonify({
-                'erro': 'Confirmação de senha é obrigatória.'
+                'mensagem': {"informacao":'Confirmação de senha é obrigatória.',
+                             "tipo":"erro"}
             }), 400
 
         if tipo is None:
             return jsonify({
-                'erro': 'Tipo de usuário é obrigatório.'
+                'mensagem': {"informacao":'Tipo de usuário é obrigatório.',
+                             "tipo":"erro"}
             }), 400
 
         # ==========================================
@@ -127,7 +135,8 @@ def cadastro():
         if senha != confirmar_senha:
 
             return jsonify({
-                'erro': 'As senhas não coincidem.'
+                'mensagem': {"informacao":'As senhas não coincidem.',
+                             "tipo":"erro"}
             }), 400
 
         # ==========================================
@@ -141,7 +150,8 @@ def cadastro():
         if not senha_valida:
 
             return jsonify({
-                'erro': mensagem_senha
+                'mensagem': {"informacao":mensagem_senha,
+                             "tipo":"erro"}
             }), 400
 
         # ==========================================
@@ -155,13 +165,14 @@ def cadastro():
         except (ValueError, TypeError):
 
             return jsonify({
-                'erro': 'Tipo de usuário inválido.'
+                'mensagem': {"informacao":'Tipo de usuário inválido.',
+                             "tipo":"erro"}
             }), 400
 
         if tipo not in [1, 2, 3]:
 
             return jsonify({
-                'erro': 'Tipo de usuário inválido.'
+                'men': 'Tipo de usuário inválido.'
             }), 400
 
         # ==========================================
@@ -190,7 +201,8 @@ def cadastro():
         if usuario_existente:
 
             return jsonify({
-                'erro': 'Este e-mail já está cadastrado.'
+                'mensagem': {"informacao":'Este e-mail já está cadastrado.',
+                             "tipo":"erro"}
             }), 409
 
         # ==========================================
@@ -292,9 +304,9 @@ def cadastro():
 
         if not email_enviado:
             return jsonify({
-                'erro':
-                    'Cadastro realizado, mas não foi possível '
-                    'enviar o e-mail de confirmação.'
+                'mensagem':{"informacao":'Cadastro realizado, mas não foi possível '
+                    'enviar o e-mail de confirmação.',"tipo":"erro"}
+
             }), 500
 
         # ==========================================
@@ -302,10 +314,11 @@ def cadastro():
         # ==========================================
 
         return jsonify({
-            'mensagem':
-                'Cadastro realizado com sucesso! '
-                'Um código de confirmação foi enviado '
-                'para seu e-mail.'
+            'mensagem':{"informacao":'Cadastro realizado com sucesso! '
+                                    'Um código de confirmação foi enviado '
+                                    'para seu e-mail.',
+                        "tipo":"sucesso"}
+
         }), 201
 
     except Exception as erro:
@@ -320,7 +333,7 @@ def cadastro():
         )
 
         return jsonify({
-            'erro': 'Erro ao realizar cadastro.',
+            'mensagem': {"informacao":'Erro ao realizar cadastro.',"tipo":"erro"},
             'detalhes': str(erro)
         }), 500
 
@@ -342,17 +355,37 @@ def verificar_codigo():
 
     try:
 
-        dados = request.get_json()
+        dados = request.get_json(silent=True)
+
+        if not dados:
+            return jsonify({
+                'mensagem': {
+                    'informacao': 'Envie os dados em formato JSON.',
+                    'tipo': 'erro'
+                }
+            }), 400
 
         email = dados.get('email')
         codigo = dados.get('codigo')
 
-        if not email or not codigo:
-
+        if not email:
             return jsonify({
-                'erro':
-                    'E-mail e código são obrigatórios.'
+                'mensagem': {
+                    'informacao': 'E-mail é obrigatório.',
+                    'tipo': 'erro'
+                }
             }), 400
+
+        if not codigo:
+            return jsonify({
+                'mensagem': {
+                    'informacao': 'Código de ativação é obrigatório.',
+                    'tipo': 'erro'
+                }
+            }), 400
+
+        email = str(email).strip()
+        codigo = str(codigo).strip()
 
         con = conectar_banco()
         cursor = con.cursor()
@@ -362,7 +395,7 @@ def verificar_codigo():
             SELECT
                 ID_USUARIO,
                 CODIGO_VERIFICACAO,
-                EMAIL_CONFIRMANDO
+                ATIVO
             FROM USUARIO
             WHERE EMAIL = ?
             ''',
@@ -374,38 +407,66 @@ def verificar_codigo():
         if not usuario:
 
             return jsonify({
-                'erro': 'Usuário não encontrado.'
+                'mensagem': {
+                    'informacao': 'Usuário não encontrado.',
+                    'tipo': 'erro'
+                }
             }), 404
 
         id_usuario = usuario[0]
         codigo_banco = usuario[1]
-        email_confirmado = usuario[2]
+        ativo = usuario[2]
+
+        print('==============================')
+        print('VERIFICAÇÃO DE E-MAIL')
+        print('ID:', id_usuario)
+        print('E-MAIL:', email)
+        print('CÓDIGO RECEBIDO:', codigo)
+        print('CÓDIGO BANCO:', codigo_banco)
+        print('ATIVO:', ativo)
+        print('==============================')
 
         # ==========================================
-        # JÁ CONFIRMADO
+        # JÁ ATIVADO
         # ==========================================
 
-        if email_confirmado == 1:
+        if int(ativo or 0) == 1:
 
             return jsonify({
-                'mensagem':
-                    'Este e-mail já foi confirmado.'
+                'mensagem': {
+                    'informacao': 'Esta conta já está ativada.',
+                    'tipo': 'sucesso'
+                }
             }), 200
+
+        # ==========================================
+        # CÓDIGO NÃO EXISTE
+        # ==========================================
+
+        if codigo_banco is None:
+
+            return jsonify({
+                'mensagem': {
+                    'informacao': 'Código de ativação não encontrado.',
+                    'tipo': 'erro'
+                }
+            }), 400
 
         # ==========================================
         # COMPARAR CÓDIGO
         # ==========================================
 
-        if str(codigo) != str(codigo_banco):
+        if codigo != str(codigo_banco).strip():
 
             return jsonify({
-                'mensagem':
-                    {"informacao":'Código de verificação inválido.',
-                     "tipo":'erro'}
+                'mensagem': {
+                    'informacao': 'Código de verificação inválido.',
+                    'tipo': 'erro'
+                }
             }), 400
 
         # ==========================================
-        # CONFIRMAR E-MAIL
+        # ATIVAR USUÁRIO
         # ==========================================
 
         cursor.execute(
@@ -413,7 +474,7 @@ def verificar_codigo():
             UPDATE USUARIO
             SET
                 ATIVO = 1,
-                EMAIL_CONFIRMANDO = 1,
+                EMAIL_CONFIRMADO = 1,
                 CODIGO_VERIFICACAO = NULL
             WHERE ID_USUARIO = ?
             ''',
@@ -422,9 +483,13 @@ def verificar_codigo():
 
         con.commit()
 
+        print('USUÁRIO ATIVADO COM SUCESSO!')
+
         return jsonify({
-            'mensagem':
-                'E-mail confirmado com sucesso!'
+            'mensagem': {
+                'informacao': 'E-mail confirmado com sucesso! Sua conta foi ativada.',
+                'tipo': 'sucesso'
+            }
         }), 200
 
     except Exception as erro:
@@ -435,10 +500,11 @@ def verificar_codigo():
         print('ERRO AO VERIFICAR CÓDIGO:', erro)
 
         return jsonify({
-            'erro':
-                'Erro ao verificar código.',
-            'detalhes':
-                str(erro)
+            'mensagem': {
+                'informacao': 'Erro ao verificar código.',
+                'tipo': 'erro'
+            },
+            'detalhes': str(erro)
         }), 500
 
     finally:
@@ -447,5 +513,216 @@ def verificar_codigo():
             con.close()
 
 
+# ==========================================
+# EDITAR USUÁRIO
+# ==========================================
 
+@app.route('/editar-usuario/<int:id_usuario>', methods=['PUT'])
+def editar_usuario(id_usuario):
 
+    con = None
+
+    try:
+
+        # ==========================================
+        # VERIFICAR TOKEN
+        # ==========================================
+
+        token_data = decodificar_token()
+
+        if not token_data:
+            return jsonify({
+                'mensagem': {"informacao":'Token necessário.',
+                             "tipo":"erro"}
+            }), 401
+
+        if token_data['id_usuario'] != id_usuario and token_data['tipo'] != 0:
+            return jsonify({
+                'mensagem': {"informacao":'Você só pode editar seu próprio perfil.',"tipo":"erro"}
+            }), 403
+
+        # ==========================================
+        # PEGAR DADOS
+        # ==========================================
+
+        dados = request.get_json(silent=True)
+
+        if not dados:
+            return jsonify({
+                'mensagem': {"informacao":'Envie os dados em formato JSON.',"tipo":"erro"}
+            }), 400
+
+        nome = dados.get('nome')
+        email = dados.get('email')
+        telefone = dados.get('telefone')
+        senha = dados.get('senha')
+        confirmar_senha = dados.get('confirmarSenha')
+
+        # ==========================================
+        # CONECTAR BANCO
+        # ==========================================
+
+        con = conectar_banco()
+        cursor = con.cursor()
+
+        # ==========================================
+        # BUSCAR USUÁRIO
+        # ==========================================
+
+        cursor.execute(
+            '''
+            SELECT
+                ID_USUARIO,
+                NOME,
+                EMAIL,
+                TELEFONE,
+                SENHA_HASH
+            FROM USUARIO
+            WHERE ID_USUARIO = ?
+            ''',
+            (id_usuario,)
+        )
+
+        usuario = cursor.fetchone()
+
+        if not usuario:
+            return jsonify({
+                'mensagem': {"informacao":'Usuário não encontrado.',"tipo":"erro"}
+            }), 404
+
+        # ==========================================
+        # MANTER DADOS ANTIGOS
+        # ==========================================
+
+        if not nome:
+            nome = usuario[1]
+
+        if not email:
+            email = usuario[2]
+
+        if not telefone:
+            telefone = usuario[3]
+
+        senha_hash = usuario[4]
+
+        # ==========================================
+        # VALIDAR NOME
+        # ==========================================
+
+        if not nome.strip():
+            return jsonify({
+                'mensagem': {"informacao":'Nome é obrigatório.',"tipo":"erro"}
+            }), 400
+
+        # ==========================================
+        # VALIDAR EMAIL
+        # ==========================================
+
+        if not email.strip():
+            return jsonify({
+                'mensagem': {"informacao":'E-mail é obrigatório.',"tipo":'erro'}
+            }), 400
+
+        # ==========================================
+        # VERIFICAR EMAIL DUPLICADO
+        # ==========================================
+
+        if email != usuario[2]:
+
+            cursor.execute(
+                '''
+                SELECT ID_USUARIO
+                FROM USUARIO
+                WHERE EMAIL = ?
+                AND ID_USUARIO <> ?
+                ''',
+                (email, id_usuario)
+            )
+
+            email_existente = cursor.fetchone()
+
+            if email_existente:
+                return jsonify({
+                    'mensagem': {"informacao":'Este e-mail já está cadastrado.',"tipo":"erro"}
+                }), 409
+
+        # ==========================================
+        # ALTERAR SENHA
+        # ==========================================
+
+        if senha:
+
+            if not confirmar_senha:
+                return jsonify({
+                    'mensagem': {"informacao":'Confirmação de senha é obrigatória.',"tipo":"erro"}
+                }), 400
+
+            if senha != confirmar_senha:
+                return jsonify({
+                    'mensagem': {"informacao":'As senhas não coincidem.',"tipo":"erro"}
+                }), 400
+
+            senha_valida, mensagem_senha = verificar_senha_forte(senha)
+
+            if not senha_valida:
+                return jsonify({
+                    'mensagem': {"informacao":mensagem_senha,"tipo":"erro"}
+                }), 400
+
+            senha_hash = criptografar_senha(senha)
+
+        # ==========================================
+        # ATUALIZAR USUÁRIO
+        # ==========================================
+
+        cursor.execute(
+            '''
+            UPDATE USUARIO
+            SET
+                NOME = ?,
+                EMAIL = ?,
+                TELEFONE = ?,
+                SENHA_HASH = ?
+            WHERE ID_USUARIO = ?
+            ''',
+            (
+                nome,
+                email,
+                telefone,
+                senha_hash,
+                id_usuario
+            )
+        )
+
+        # ==========================================
+        # SALVAR NO BANCO
+        # ==========================================
+
+        con.commit()
+
+        return jsonify({
+            'mensagem': {"informacao":'Usuário editado com sucesso!',"tipo":"sucesso"},
+            'usuario': {
+                'id_usuario': id_usuario,
+                'nome': nome,
+                'email': email,
+                'telefone': telefone
+            }
+        }), 200
+
+    except Exception as erro:
+
+        if con:
+            con.rollback()
+
+        print('ERRO AO EDITAR USUÁRIO:', erro)
+
+        return jsonify({
+            'erro': {"informacao":'Erro ao editar usuário.',"tipo":"erro"},
+            'detalhes': str(erro)
+        }), 500
+
+    finally:
+
+        if con:
+            con.close()

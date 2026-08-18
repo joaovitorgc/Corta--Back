@@ -1,6 +1,6 @@
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, current_app
+import datetime
 from flask_bcrypt import generate_password_hash, check_password_hash
-
 import jwt
 import re
 import random
@@ -131,11 +131,43 @@ def enviando_email(
 
         print("Email enviado com sucesso!")
 
-
         return True
 
     except Exception as e:
 
         print("Erro ao enviar email:", e)
 
+        return False
+
+
+
+
+def gerar_token(tipo, id_usuario, minutos=10):
+    payload = {
+        'tipo': tipo,
+        'id_usuario': id_usuario,
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=minutos)
+    }
+    token = jwt.encode(payload, current_app.config['SECRET_KEY'], algorithm='HS256')
+    return token
+
+
+def decodificar_token():
+    try:
+        token = request.cookies.get('acess_token')
+
+        if not token:
+            auth = request.headers.get('Authorization')
+            if auth and auth.startswith('Bearer '):
+                token = auth.split('Bearer ')[1]
+
+        if not token:
+            return False
+
+        payload = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
+        return {'tipo': payload['tipo'], 'id_usuario': payload['id_usuario']}
+
+    except jwt.ExpiredSignatureError:
+        return False
+    except:
         return False
