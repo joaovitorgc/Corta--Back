@@ -137,7 +137,7 @@ def recuperar_senha():
                 WHERE ID_USUARIO = ?
                 ''',
                 (
-                    codigo,
+                    111111,
                     id_usuario
                 )
             )

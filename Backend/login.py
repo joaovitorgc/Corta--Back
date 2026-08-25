@@ -395,24 +395,18 @@ def login():
             }
         })
 
-
-        # ==================================================
+        # ==========================================================
         # SALVAR JWT NO COOKIE
-        # ==================================================
+        # ==========================================================
 
         resposta.set_cookie(
-
-            'access_token',
-
-            token,
-
+            key='access_token',
+            value=token,
+            max_age=7200,
             httponly=True,
-
-            samesite='Lax',
-
             secure=False,
-
-            max_age=7200
+            samesite='Lax',
+            path='/'
         )
 
 
@@ -481,26 +475,23 @@ def login():
 def logout():
 
     resposta = make_response(
-
         jsonify({
             'mensagem': {
                 'informacao': 'Logout realizado com sucesso!',
                 'tipo': 'sucesso'
             }
         }),
-
         200
     )
 
-
     resposta.delete_cookie(
-        'access_token'
+        'access_token',
+        path='/'
     )
 
-
     resposta.delete_cookie(
-        'acess_token'
+        'acess_token',
+        path='/'
     )
-
 
     return resposta
