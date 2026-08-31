@@ -148,10 +148,6 @@ def enviando_email(
 
         server.quit()
 
-        print(
-            "EMAIL ENVIADO COM SUCESSO!"
-        )
-
         return True
 
     except Exception as erro:

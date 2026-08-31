@@ -351,11 +351,6 @@ def cadastro():
 
             con.rollback()
 
-        print(
-            'ERRO NO CADASTRO:',
-            erro
-        )
-
         return jsonify({
             'mensagem': {"informacao":'Erro ao realizar cadastro.',"tipo":"erro"},
             'detalhes': str(erro)
@@ -441,19 +436,6 @@ def verificar_codigo():
         codigo_banco = usuario[1]
         ativo = usuario[2]
 
-        print('==============================')
-        print('VERIFICAÇÃO DE E-MAIL')
-        print('ID:', id_usuario)
-        print('E-MAIL:', email)
-        print('CÓDIGO RECEBIDO:', codigo)
-        print('CÓDIGO BANCO:', codigo_banco)
-        print('ATIVO:', ativo)
-        print('==============================')
-
-        # ==========================================
-        # JÁ ATIVADO
-        # ==========================================
-
         if int(ativo or 0) == 1:
 
             return jsonify({
@@ -507,8 +489,6 @@ def verificar_codigo():
 
         con.commit()
 
-        print('USUÁRIO ATIVADO COM SUCESSO!')
-
         return jsonify({
             'mensagem': {
                 'informacao': 'E-mail confirmado com sucesso! Sua conta foi ativada.',
@@ -520,8 +500,6 @@ def verificar_codigo():
 
         if con:
             con.rollback()
-
-        print('ERRO AO VERIFICAR CÓDIGO:', erro)
 
         return jsonify({
             'mensagem': {
