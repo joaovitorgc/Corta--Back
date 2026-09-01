@@ -193,7 +193,7 @@ def cadastro():
                              "tipo":"erro"}
             }), 400
 
-        if tipo not in [1, 2, 3]:
+        if tipo not in [0, 1, 2]:
 
             return jsonify({
                 'men': 'Tipo de usuário inválido.'
@@ -281,7 +281,7 @@ def cadastro():
                 ?, ?, ?, ?, ?, ?,
                 0,
                 0,
-                111111
+                ?
             )
             ''',
             (

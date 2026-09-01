@@ -27,7 +27,7 @@ CORS(
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
                 "http://10.92.3.142:5173",
-                "http://10.92.3.45:5173",
+                "http://10.92.11.47:5173",
                 "http://192.168.0.9:5173"
             ],
 
@@ -106,40 +106,23 @@ except Exception as erro:
 # ==========================================================
 
 from view import *
-
-
-# ==========================================================
-# MOSTRAR ROTAS
-# ==========================================================
-
-print("")
-print("==========================================")
-print("ROTAS REGISTRADAS:")
-print("==========================================")
-
-for rota in app.url_map.iter_rules():
-
-    print(
-        rota,
-        "->",
-        ", ".join(rota.methods)
-    )
-
-print("==========================================")
-print("")
-
-
-# ==========================================================
-# INICIAR
-# ==========================================================
+from Listar_usuario import *
 
 if __name__ == '__main__':
+    from pyngrok import ngrok
 
+    # 1. Configurar o seu Token (Substitua pelo seu token real do site do ngrok)
+    # Você só precisa pegar esse token uma vez no painel do ngrok.com
+    NGROK_TOKEN = "SEU_TOKEN_AQUI"
+    ngrok.set_auth_token(NGROK_TOKEN)
+
+
+
+    # 3. Iniciar o servidor Flask normalmente (Link Local)
+    print("Iniciando servidor local...")
     app.run(
-
         host='0.0.0.0',
-
         port=5000,
-
-        debug=True
+        debug=True,
+        use_reloader=False  # Evita que o ngrok tente abrir dois túneis ao mesmo tempo no modo debug
     )
