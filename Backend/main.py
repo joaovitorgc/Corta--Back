@@ -28,7 +28,11 @@ CORS(
                 "http://127.0.0.1:5173",
                 "http://10.92.3.142:5173",
                 "http://10.92.11.47:5173",
-                "http://192.168.0.9:5173"
+                "http://192.168.0.9:5173",
+                "http://192.168.137.1:5173",
+                "http://10.92.11.27:5173",
+                "http://10.92.3.114:5000",
+                "http://10.92.11.71:5173"
             ],
 
             "methods": [
@@ -108,16 +112,7 @@ except Exception as erro:
 from view import *
 from Listar_usuario import *
 
-if __name__ == '__main__':
-    from pyngrok import ngrok
-
-    # 1. Configurar o seu Token (Substitua pelo seu token real do site do ngrok)
-    # Você só precisa pegar esse token uma vez no painel do ngrok.com
-    NGROK_TOKEN = "SEU_TOKEN_AQUI"
-    ngrok.set_auth_token(NGROK_TOKEN)
-
-
-
+if __name__ == '__main__':  
     # 3. Iniciar o servidor Flask normalmente (Link Local)
     print("Iniciando servidor local...")
     app.run(

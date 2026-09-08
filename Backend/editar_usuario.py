@@ -35,16 +35,6 @@ def dados_perfil(id_usuario):
     cursor = None
 
     try:
-
-        print()
-        print("==========================================")
-        print("        BUSCANDO DADOS DO PERFIL")
-        print("==========================================")
-        print(
-            "ID solicitado:",
-            id_usuario
-        )
-
         # ==================================================
         # VERIFICAR TOKEN
         # ==================================================
@@ -52,10 +42,6 @@ def dados_perfil(id_usuario):
         token_data = decodificar_token()
 
         if not token_data:
-
-            print(
-                "Token não encontrado ou inválido."
-            )
 
             return jsonify({
 
@@ -226,32 +212,11 @@ def dados_perfil(id_usuario):
 
         }
 
-        print(
-            "Perfil encontrado:"
-        )
-
-        print(
-            resposta
-        )
-
-        print(
-            "=========================================="
-        )
-
         return jsonify(
             resposta
         ), 200
 
     except Exception as erro:
-
-        print()
-        print("==========================================")
-        print("ERRO AO BUSCAR DADOS DO PERFIL")
-        print("==========================================")
-        print(
-            erro
-        )
-        print("==========================================")
 
         return jsonify({
 
@@ -307,15 +272,6 @@ def editar_usuario(id_usuario):
     cursor = None
 
     try:
-
-        print()
-        print("==========================================")
-        print("          EDITANDO USUÁRIO")
-        print("==========================================")
-        print(
-            "ID do usuário:",
-            id_usuario
-        )
 
         # ==================================================
         # VERIFICAR TOKEN
@@ -730,11 +686,6 @@ def editar_usuario(id_usuario):
 
         if foto:
 
-            print(
-                "Foto recebida:",
-                foto.filename
-            )
-
             salvar_foto_perfil(
                 foto,
                 id_usuario
@@ -794,18 +745,6 @@ def editar_usuario(id_usuario):
 
         }
 
-        print(
-            "Usuário atualizado:"
-        )
-
-        print(
-            resposta
-        )
-
-        print(
-            "=========================================="
-        )
-
         return jsonify(
             resposta
         ), 200
@@ -855,15 +794,6 @@ def editar_usuario(id_usuario):
             except Exception:
 
                 pass
-
-        print()
-        print("==========================================")
-        print("ERRO AO EDITAR USUÁRIO")
-        print("==========================================")
-        print(
-            erro
-        )
-        print("==========================================")
 
         return jsonify({
 
@@ -929,16 +859,6 @@ def editar_usuario(id_usuario):
 )
 def servir_foto_perfil(nome_arquivo):
 
-    print()
-    print("==========================================")
-    print("         REQUISIÇÃO DE FOTO")
-    print("==========================================")
-
-    print(
-        "Arquivo solicitado:",
-        nome_arquivo
-    )
-
     # ======================================================
     # PEGAR PASTA CONFIGURADA
     # ======================================================
@@ -949,21 +869,12 @@ def servir_foto_perfil(nome_arquivo):
 
     if not pasta_perfil:
 
-        print(
-            "ERRO: PERFIL_FOLDER não configurado."
-        )
-
         return jsonify({
 
             'erro':
                 'Pasta de perfil não configurada.'
 
         }), 500
-
-    print(
-        "Pasta:",
-        pasta_perfil
-    )
 
     # ======================================================
     # GARANTIR QUE A PASTA EXISTE
@@ -973,10 +884,6 @@ def servir_foto_perfil(nome_arquivo):
             pasta_perfil
     ):
 
-        print(
-            "Pasta não existe. Criando..."
-        )
-
         try:
 
             os.makedirs(
@@ -985,11 +892,6 @@ def servir_foto_perfil(nome_arquivo):
             )
 
         except Exception as erro:
-
-            print(
-                "Erro ao criar pasta:",
-                erro
-            )
 
             return jsonify({
 
@@ -1051,11 +953,6 @@ def servir_foto_perfil(nome_arquivo):
         nome_seguro
     )
 
-    print(
-        "Caminho completo:",
-        caminho
-    )
-
     # ======================================================
     # VERIFICAR ARQUIVO
     # ======================================================
@@ -1063,10 +960,6 @@ def servir_foto_perfil(nome_arquivo):
     if not os.path.isfile(
             caminho
     ):
-
-        print(
-            "FOTO NÃO ENCONTRADA!"
-        )
 
         return jsonify({
 
@@ -1078,14 +971,6 @@ def servir_foto_perfil(nome_arquivo):
     # ======================================================
     # ENVIAR FOTO
     # ======================================================
-
-    print(
-        "Foto encontrada. Enviando..."
-    )
-
-    print(
-        "=========================================="
-    )
 
     return send_from_directory(
         pasta_perfil,
@@ -1106,15 +991,6 @@ def excluir_foto_perfil(id_usuario):
     cursor = None
 
     try:
-
-        print()
-        print("==========================================")
-        print("       EXCLUINDO FOTO DE PERFIL")
-        print("==========================================")
-        print(
-            "ID do usuário:",
-            id_usuario
-        )
 
         # ==================================================
         # VERIFICAR TOKEN
@@ -1311,10 +1187,6 @@ def excluir_foto_perfil(id_usuario):
 
         if not foto_encontrada:
 
-            print(
-                "Nenhuma foto encontrada para o usuário."
-            )
-
             return jsonify({
 
                 'mensagem': {
@@ -1394,19 +1266,6 @@ def excluir_foto_perfil(id_usuario):
                 }
 
             }), 500
-
-        print(
-            "Foto excluída com sucesso!"
-        )
-
-        print(
-            "Arquivo:",
-            foto_encontrada
-        )
-
-        print(
-            "=========================================="
-        )
 
         # ==================================================
         # RESPOSTA
