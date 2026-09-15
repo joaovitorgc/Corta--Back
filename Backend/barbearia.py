@@ -1031,17 +1031,57 @@ def personalizacao_barbearia():
             )
 
 
-            if not any([
+            # ==========================================================
+            # VALIDAÇÃO DOS HORÁRIOS
+            # ==========================================================
 
+            # Se o dia não possui nenhum horário, ignora o dia
+            if not any([
                 entrada_manha,
                 saida_manha,
                 entrada_tarde,
                 saida_tarde
-
             ]):
-
                 continue
 
+
+            # Entrada da manhã não pode ser depois da saída da manhã
+            if entrada_manha and saida_manha:
+                if entrada_manha > saida_manha:
+                    return jsonify({
+                        'mensagem': {
+                            'informacao':
+                                "A entrada de manhã não pode ser maior que a saída de manhã",
+                            'tipo':
+                                'erro'
+                        }
+                    }), 400
+
+
+            # Saída da manhã não pode ser depois da entrada da tarde
+            if saida_manha and entrada_tarde:
+                if saida_manha > entrada_tarde:
+                    return jsonify({
+                        'mensagem': {
+                            'informacao':
+                                "A saída de manhã não pode ser maior que a entrada de tarde",
+                            'tipo':
+                                'erro'
+                        }
+                    }), 400
+
+
+            # Entrada da tarde não pode ser depois da saída da tarde
+            if entrada_tarde and saida_tarde:
+                if entrada_tarde > saida_tarde:
+                    return jsonify({
+                        'mensagem': {
+                            'informacao':
+                                "A entrada de tarde não pode ser maior que a saída de tarde",
+                            'tipo':
+                                'erro'
+                        }
+                    }), 400
 
             cursor.execute("""
                 INSERT INTO DIAS_DE_SERVICO (
@@ -1665,16 +1705,57 @@ def editar_personalizacao():
             )
 
 
-            if not any([
+            # ==========================================================
+            # VALIDAÇÃO DOS HORÁRIOS
+            # ==========================================================
 
+            # Se o dia não possui nenhum horário, ignora o dia
+            if not any([
                 entrada_manha,
                 saida_manha,
                 entrada_tarde,
                 saida_tarde
-
             ]):
-
                 continue
+
+
+            # Entrada da manhã não pode ser depois da saída da manhã
+            if entrada_manha and saida_manha:
+                if entrada_manha > saida_manha:
+                    return jsonify({
+                        'mensagem': {
+                            'informacao':
+                                "A entrada de manhã não pode ser maior que a saída de manhã",
+                            'tipo':
+                                'erro'
+                        }
+                    }), 400
+
+
+            # Saída da manhã não pode ser depois da entrada da tarde
+            if saida_manha and entrada_tarde:
+                if saida_manha > entrada_tarde:
+                    return jsonify({
+                        'mensagem': {
+                            'informacao':
+                                "A saída de manhã não pode ser maior que a entrada de tarde",
+                            'tipo':
+                                'erro'
+                        }
+                    }), 400
+
+
+            # Entrada da tarde não pode ser depois da saída da tarde
+            if entrada_tarde and saida_tarde:
+                if entrada_tarde > saida_tarde:
+                    return jsonify({
+                        'mensagem': {
+                            'informacao':
+                                "A entrada de tarde não pode ser maior que a saída de tarde",
+                            'tipo':
+                                'erro'
+                        }
+                    }), 400
 
 
             cursor.execute("""
