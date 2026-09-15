@@ -654,8 +654,19 @@ def criar_servico_barbearia():
 
         con = conectar_banco()
         cursor = con.cursor()
+
+        cursor.execute('SELECT NOME_SERVICO FROM SERVICO WHERE lower(trim(NOME_SERVICO)) = ?;', (nome.lower(),))
+        existe = cursor.fetchone()
+        if existe[0]:
+            if existe[0].lower() == nome.lower():
+                return jsonify({
+                    "mensagem": {"informacao": "Esse serviço já existe não pode se cadastrado novamente",
+                                 "tipo": 'erro'}
+                })
+
         cursor.execute('SELECT COALESCE(MAX(ID_SERVICO), 0) + 1 FROM SERVICO')
         id_servico = cursor.fetchone()[0]
+
         cursor.execute("""
             INSERT INTO SERVICO (ID_SERVICO, ID_USUARIO, NOME_SERVICO, PRECO, DURACAO, DESCRICAO_BREVE)
             VALUES (?, ?, ?, ?, ?, ?)
