@@ -127,7 +127,7 @@ def alterar_status_usuario(id_usuario):
             if not email_enviado:
                 return jsonify({'mensagem': {'informacao': 'Não foi possível enviar o e-mail. O usuário não foi desativado.', 'tipo': 'erro'}}), 502
 
-        cursor.execute('UPDATE USUARIO SET ATIVO = ?, TENTATIVA = 0 WHERE ID_USUARIO = ?', (novo_status, id_usuario))
+        cursor.execute('UPDATE USUARIO SET ATIVO = ?, TENTATIVA = 0, EMAIL_CONFIRMADO = 1  WHERE ID_USUARIO = ?', (novo_status, id_usuario))
         con.commit()
         return jsonify({'mensagem': {'informacao': 'Usuário ativado com sucesso.' if ativo else 'Usuário desativado e comunicado por e-mail.', 'tipo': 'sucesso'}, 'ativo': ativo}), 200
     except Exception as erro:
