@@ -7,6 +7,7 @@ from login import *
 from recuperar_senha import *
 from editar_usuario import *
 from barbearia import *
+from api_docs import *
 
 
 # ==========================================================

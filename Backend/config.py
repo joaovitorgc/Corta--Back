@@ -32,7 +32,7 @@ DB_NAME = os.path.join(
 
 DB_USER = 'SYSDBA'
 
-DB_PASSWORD = 'sysdba'
+DB_PASSWORD = 'masterkey'
 
 
 # ==========================================================

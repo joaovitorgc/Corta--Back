@@ -98,9 +98,15 @@ def enviando_email(
         assunto,
         mensagem,
         nome,
-        codigo,
-        mensagem_secundaria
+        codigo=None,
+        mensagem_secundaria=None
 ):
+
+    # Um aviso administrativo não possui código. Mantemos a mesma função para
+    # todos os e-mails, mas enviamos ao template uma flag explícita para ele
+    # não reservar a caixa laranja para textos como "—".
+    codigo_texto = str(codigo or '').strip()
+    exibir_codigo = bool(re.fullmatch(r'\d{6}', codigo_texto))
 
     user = current_app.config['MAIL_USER']
     senha = current_app.config['MAIL_PASSWORD']
@@ -111,8 +117,9 @@ def enviando_email(
             "ativacao.html",
             nome=nome,
             mensagem=mensagem,
-            codigo=codigo,
-            mensagem_secundaria=mensagem_secundaria
+            codigo=codigo_texto,
+            mensagem_secundaria=mensagem_secundaria or '',
+            exibir_codigo=exibir_codigo
         )
 
         msg = MIMEText(
@@ -158,6 +165,27 @@ def enviando_email(
         )
 
         return False
+
+
+# ==========================================================
+# E-MAIL DE AVISO
+# ==========================================================
+
+def enviar_aviso_email(destinatario, nome, assunto, mensagem, remetente='Cortaê'):
+    """Envia um comunicado textual sem reaproveitar o layout de código.
+
+    Esta função é a base para futuros avisos enviados por uma barbearia. Ela
+    centraliza a apresentação, evita HTML montado a partir de texto do usuário
+    e preserva a função principal de envio em um único lugar.
+    """
+    return enviando_email(
+        destinatario=destinatario,
+        assunto=assunto,
+        mensagem=mensagem,
+        nome=nome,
+        codigo=None,
+        mensagem_secundaria=f'Enviado por: {remetente}'
+    )
 
 
 # ==========================================================

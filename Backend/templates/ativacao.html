@@ -1,143 +1,36 @@
-```html
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cortaê</title>
 </head>
+<!-- Estilos inline são intencionais: os principais provedores de e-mail não
+     aplicam CSS externo com a mesma consistência que um navegador. -->
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;color:#343434;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 12px;background:#f4f4f4;">
+        <tr><td align="center">
+            <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;">
+                <tr><td align="center" style="padding:28px;background:#111111;color:#ffffff;">
+                    <span style="font-size:30px;font-weight:700;letter-spacing:1px;">Cortaê</span>
+                </td></tr>
+                <tr><td style="padding:36px 30px;text-align:center;">
+                    <h1 style="margin:0 0 18px;font-size:24px;color:#242424;">Olá, {{ nome|e }}!</h1>
+                    <p style="margin:0;color:#555555;font-size:16px;line-height:1.65;">{{ mensagem|e|replace('\n', '<br>')|safe }}</p>
 
-<body style="
-    margin: 0;
-    padding: 0;
-    background-color: #f4f4f4;
-    font-family: Arial, Helvetica, sans-serif;
-">
+                    {% if exibir_codigo %}
+                    <!-- A caixa existe somente em fluxos que enviam um código de 6 dígitos. -->
+                    <div style="margin:28px 0;padding:17px 12px;background:#d57c15;border-radius:8px;color:#ffffff;font-size:30px;font-weight:700;letter-spacing:7px;">{{ codigo|e }}</div>
+                    {% endif %}
 
-    <div style="
-        max-width: 600px;
-        margin: 40px auto;
-        background-color: #ffffff;
-        border-radius: 10px;
-        overflow: hidden;
-        box-shadow: 0 0 10px rgba(0,0,0,0.10);
-    ">
-
-        <!-- CABEÇALHO -->
-
-        <div style="
-            background-color: #000000;
-            padding: 30px;
-            text-align: center;
-        ">
-
-            <h1 style="
-                margin: 0;
-                color: #ffffff;
-                font-size: 30px;
-                font-weight: bold;
-            ">
-                Cortaê
-            </h1>
-
-        </div>
-
-
-        <!-- CONTEÚDO -->
-
-        <div style="
-            padding: 40px 30px;
-        ">
-
-            <h2 style="
-                margin: 0 0 20px 0;
-                color: #333333;
-                text-align: center;
-                font-size: 24px;
-            ">
-                Olá, {{nome}}!
-            </h2>
-
-
-            <p style="
-                margin: 0 0 20px 0;
-                color: #555555;
-                font-size: 16px;
-                line-height: 1.6;
-                text-align: center;
-            ">
-                {{mensagem}}
-            </p>
-
-
-            <!-- CÓDIGO -->
-
-            <div style="
-                margin: 30px 0;
-                padding: 15px;
-                background-color: #d57c15;
-                border-radius: 8px;
-                text-align: center;
-            ">
-
-                <span style="
-                    color: #ffffff;
-                    font-size: 32px;
-                    font-weight: bold;
-                    letter-spacing: 8px;
-                ">
-                    {{codigo}}
-                </span>
-
-            </div>
-
-
-            <p style="
-                margin: 0 0 20px 0;
-                color: #555555;
-                font-size: 15px;
-                line-height: 1.6;
-                text-align: center;
-            ">
-                {{mensagem_secundaria}}
-            </p>
-
-
-            <p style="
-                margin: 25px 0 0 0;
-                color: #999999;
-                font-size: 13px;
-                line-height: 1.5;
-                text-align: center;
-            ">
-                Se você não reconhece essa ação, ignore este email.
-            </p>
-
-        </div>
-
-
-        <!-- RODAPÉ -->
-
-        <div style="
-            padding: 20px;
-            background-color: #eeeeee;
-            text-align: center;
-        ">
-
-            <p style="
-                margin: 0;
-                color: #777777;
-                font-size: 12px;
-            ">
-                © 2026 Cortaê
-            </p>
-
-        </div>
-
-    </div>
-
+                    {% if mensagem_secundaria %}
+                    <p style="margin:22px 0 0;color:#666666;font-size:15px;line-height:1.65;">{{ mensagem_secundaria|e|replace('\n', '<br>')|safe }}</p>
+                    {% endif %}
+                    <p style="margin:28px 0 0;color:#8a8a8a;font-size:12px;line-height:1.5;">Se você não reconhece esta ação, ignore este e-mail.</p>
+                </td></tr>
+                <tr><td align="center" style="padding:18px;background:#eeeeee;color:#777777;font-size:12px;">© 2026 Cortaê</td></tr>
+            </table>
+        </td></tr>
+    </table>
 </body>
-
 </html>
-```

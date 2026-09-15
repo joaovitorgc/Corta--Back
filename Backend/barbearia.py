@@ -64,6 +64,35 @@ def pegar_id_usuario():
     return usuario.get('id_usuario')
 
 
+def pegar_id_barbearia_alvo():
+    """Resolve a barbearia consultada; somente ADM pode informar outro usuário."""
+    usuario = obter_usuario_logado()
+    if not usuario:
+        return None
+
+    id_logado = usuario.get('id_usuario')
+    id_solicitado = request.args.get('id_usuario') or request.form.get('id_usuario')
+    if not id_solicitado:
+        return id_logado
+
+    try:
+        id_solicitado = int(id_solicitado)
+    except (ValueError, TypeError):
+        return None
+
+    # Leitura do estabelecimento é permitida para usuários autenticados,
+    # pois os dados apresentados fazem parte da vitrine pública. Alterações
+    # continuam exclusivas do dono da barbearia ou de um administrador.
+    if (
+        id_solicitado != id_logado
+        and request.method != 'GET'
+        and int(usuario.get('tipo', -1)) != 0
+    ):
+        return None
+
+    return id_solicitado
+
+
 # ==========================================================
 # OBTER SERVIÇOS DO FUNCIONÁRIO
 # ==========================================================
@@ -419,6 +448,17 @@ def vincular_servicos_funcionario(
     return ids_servicos
 
 
+def vincular_dias_funcionario(cursor, id_funcionario, ids_dias):
+    """Salva a relação N:N entre o funcionário e todos os dias selecionados."""
+    for id_dia in set(ids_dias):
+        cursor.execute('SELECT COALESCE(MAX(ID_FUNCIONARIO_DIA), 0) + 1 FROM FUNCIONARIO_DIA')
+        id_vinculo = cursor.fetchone()[0]
+        cursor.execute("""
+            INSERT INTO FUNCIONARIO_DIA (ID_FUNCIONARIO_DIA, ID_FUNCIONARIO, ID_DIA)
+            VALUES (?, ?, ?)
+        """, (id_vinculo, id_funcionario, id_dia))
+
+
 # ==========================================================
 # PASTA DA BARBEARIA
 # ==========================================================
@@ -459,6 +499,213 @@ def extensao_permitida(nome):
         extensao
         in EXTENSOES_PERMITIDAS
     )
+
+
+# ==========================================================
+# SERVIÇOS DA BARBEARIA
+# ==========================================================
+
+@app.route('/barbearia/servicos', methods=['GET'])
+def listar_servicos_barbearia():
+    """Lista somente os serviços pertencentes à barbearia autenticada."""
+    con = None
+    cursor = None
+
+    try:
+        id_usuario = pegar_id_barbearia_alvo()
+        if not id_usuario:
+            return jsonify({'mensagem': {'informacao': 'Usuário não autenticado.', 'tipo': 'erro'}}), 401
+
+        con = conectar_banco()
+        cursor = con.cursor()
+        cursor.execute("""
+            SELECT ID_SERVICO, NOME_SERVICO, PRECO, DURACAO, DESCRICAO_BREVE
+            FROM SERVICO
+            WHERE ID_USUARIO = ?
+            ORDER BY NOME_SERVICO
+        """, (id_usuario,))
+
+        return jsonify({'servicos': [
+            {
+                'id_servico': servico[0],
+                'nome': servico[1],
+                'preco': float(servico[2]) if servico[2] is not None else 0,
+                'duracao': servico[3],
+                'descricao': servico[4]
+            }
+            for servico in cursor.fetchall()
+        ]}), 200
+    except Exception as erro:
+        return jsonify({'mensagem': {'informacao': 'Erro ao listar serviços.', 'tipo': 'erro'}, 'detalhes': str(erro)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if con:
+            con.close()
+
+
+# ==========================================================
+# CATÁLOGO DE BARBEARIAS DISPONÍVEIS
+# ==========================================================
+# Esta rota alimenta a tela BarbeariasDisponiveis no frontend. Ela retorna
+# todas as contas do tipo 2. As que ainda não finalizaram a personalização
+# recebem o status "Em configuração" para que o ADM consiga encontrá-las.
+
+@app.route('/barbearias-disponiveis', methods=['GET'])
+def listar_barbearias_disponiveis():
+    con = None
+    cursor = None
+
+    try:
+        con = conectar_banco()
+        cursor = con.cursor()
+        cursor.execute("""
+            SELECT U.ID_USUARIO, U.NOME, P.LOCALIZACAO, P.ID_PERSONALIZACAO
+            FROM USUARIO U
+            LEFT JOIN PERSONALIZACAO P ON P.ID_USUARIO = U.ID_USUARIO
+            WHERE U.TIPO = 2 AND U.ATIVO = 1
+            ORDER BY U.NOME
+        """)
+
+        resultado = []
+        pasta = criar_pasta_barbearia()
+        for id_usuario, nome, localizacao, id_personalizacao in cursor.fetchall():
+            # A primeira foto cadastrada é usada como capa do card.
+            imagem = None
+            for extensao in EXTENSOES_PERMITIDAS:
+                caminho = os.path.join(pasta, f'{id_usuario}_1.{extensao}')
+                if os.path.exists(caminho):
+                    imagem = f'/uploads/barbearia/{id_usuario}_1.{extensao}'
+                    break
+
+            # Os horários são salvos por dia; o card exibe um resumo curto.
+            cursor.execute("""
+                SELECT DIAS, ENTRADA_MANHA, SAIDA_TARDE
+                FROM DIAS_DE_SERVICO
+                WHERE ID_USUARIO = ?
+                ORDER BY ID_DIA
+            """, (id_usuario,))
+            dias = cursor.fetchall()
+            nomes_dias = [str(dia[0]).capitalize() for dia in dias if dia[0]]
+            primeiro_horario = dias[0] if dias else None
+            horario = (
+                f'{str(primeiro_horario[1])[:5]} - {str(primeiro_horario[2])[:5]}'
+                if primeiro_horario and primeiro_horario[1] and primeiro_horario[2]
+                else 'Horário a consultar'
+            )
+
+            resultado.append({
+                'id': id_usuario,
+                'nome': nome,
+                'endereco': localizacao,
+                'imagem': imagem,
+                'dias': ', '.join(nomes_dias) or 'Em configuração',
+                'horario': horario,
+                # O frontend usa este campo para não oferecer agendamento
+                # antes de a barbearia informar serviços e horários.
+                'personalizada': bool(id_personalizacao)
+            })
+
+        return jsonify(resultado), 200
+    except Exception as erro:
+        return jsonify({
+            'mensagem': {'informacao': 'Erro ao listar barbearias.', 'tipo': 'erro'},
+            'detalhes': str(erro)
+        }), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if con:
+            con.close()
+
+
+@app.route('/barbearia/servicos', methods=['POST'])
+def criar_servico_barbearia():
+    """Cria um serviço que poderá ser associado a um ou mais funcionários."""
+    con = None
+    cursor = None
+
+    try:
+        id_usuario = pegar_id_barbearia_alvo()
+        if not id_usuario:
+            return jsonify({'mensagem': {'informacao': 'Usuário não autenticado.', 'tipo': 'erro'}}), 401
+
+        dados = request.get_json(silent=True) or request.form
+        nome = str(dados.get('nome', '')).strip()
+        descricao = str(dados.get('descricao', '')).strip() or None
+        preco = dados.get('preco')
+        duracao = dados.get('duracao')
+
+        if not nome:
+            return jsonify({'mensagem': {'informacao': 'Nome do serviço é obrigatório.', 'tipo': 'erro'}}), 400
+
+        try:
+            preco_texto = str(preco).strip()
+            preco = float(
+                preco_texto.replace('.', '').replace(',', '.')
+                if ',' in preco_texto else preco_texto
+            )
+            duracao = int(duracao)
+        except (TypeError, ValueError):
+            return jsonify({'mensagem': {'informacao': 'Preço e duração válidos são obrigatórios.', 'tipo': 'erro'}}), 400
+
+        if preco < 0 or duracao <= 0:
+            return jsonify({'mensagem': {'informacao': 'Preço e duração devem ser positivos.', 'tipo': 'erro'}}), 400
+
+        con = conectar_banco()
+        cursor = con.cursor()
+        cursor.execute('SELECT COALESCE(MAX(ID_SERVICO), 0) + 1 FROM SERVICO')
+        id_servico = cursor.fetchone()[0]
+        cursor.execute("""
+            INSERT INTO SERVICO (ID_SERVICO, ID_USUARIO, NOME_SERVICO, PRECO, DURACAO, DESCRICAO_BREVE)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (id_servico, id_usuario, nome, preco, duracao, descricao))
+        con.commit()
+
+        return jsonify({
+            'mensagem': {'informacao': 'Serviço adicionado com sucesso.', 'tipo': 'sucesso'},
+            'servico': {'id_servico': id_servico, 'nome': nome, 'preco': preco, 'duracao': duracao, 'descricao': descricao}
+        }), 201
+    except Exception as erro:
+        if con:
+            con.rollback()
+        return jsonify({'mensagem': {'informacao': 'Erro ao adicionar serviço.', 'tipo': 'erro'}, 'detalhes': str(erro)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if con:
+            con.close()
+
+
+@app.route('/barbearia/servicos/<int:id_servico>', methods=['DELETE'])
+def remover_servico_barbearia(id_servico):
+    con = None
+    cursor = None
+
+    try:
+        id_usuario = pegar_id_barbearia_alvo()
+        if not id_usuario:
+            return jsonify({'mensagem': {'informacao': 'Usuário não autenticado.', 'tipo': 'erro'}}), 401
+
+        con = conectar_banco()
+        cursor = con.cursor()
+        cursor.execute('SELECT ID_SERVICO FROM SERVICO WHERE ID_SERVICO = ? AND ID_USUARIO = ?', (id_servico, id_usuario))
+        if not cursor.fetchone():
+            return jsonify({'mensagem': {'informacao': 'Serviço não encontrado.', 'tipo': 'erro'}}), 404
+
+        cursor.execute('DELETE FROM SERVICO_POR_FUNCIONARIO WHERE ID_SERVICO = ?', (id_servico,))
+        cursor.execute('DELETE FROM SERVICO WHERE ID_SERVICO = ? AND ID_USUARIO = ?', (id_servico, id_usuario))
+        con.commit()
+        return jsonify({'mensagem': {'informacao': 'Serviço removido.', 'tipo': 'sucesso'}}), 200
+    except Exception as erro:
+        if con:
+            con.rollback()
+        return jsonify({'mensagem': {'informacao': 'Erro ao remover serviço.', 'tipo': 'erro'}, 'detalhes': str(erro)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if con:
+            con.close()
 
 
 # ==========================================================
@@ -579,7 +826,7 @@ def personalizacao_barbearia():
         # AUTENTICAÇÃO
         # ==================================================
 
-        id_usuario = pegar_id_usuario()
+        id_usuario = pegar_id_barbearia_alvo()
 
         if not id_usuario:
 
@@ -661,6 +908,15 @@ def personalizacao_barbearia():
             'cor_terciaria'
         )
 
+        # Cores específicas para textos sobre fundos claros e escuros.
+        cor_texto_primario = request.form.get('cor_texto_primario')
+        cor_texto_secundario = request.form.get('cor_texto_secundario')
+
+        # Contatos exibidos publicamente na página do estabelecimento.
+        contato_telefone = request.form.get('contato_telefone')
+        contato_email = request.form.get('contato_email')
+        instagram = request.form.get('instagram')
+
         historia = request.form.get(
             'historia'
         )
@@ -704,19 +960,29 @@ def personalizacao_barbearia():
                 COR_PRIMARIA,
                 COR_SECUNDARIA,
                 COR_TERCIARIA,
+                COR_TEXTO_PRIMARIO,
+                COR_TEXTO_SECUNDARIO,
                 TEXTO,
                 LOCALIZACAO,
+                CONTATO_TELEFONE,
+                CONTATO_EMAIL,
+                INSTAGRAM,
                 NUM_FUNCIONARIOS
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING ID_PERSONALIZACAO
         """, (
             id_usuario,
             cor_primaria,
             cor_secundaria,
             cor_terciaria,
+            cor_texto_primario,
+            cor_texto_secundario,
             historia,
             localizacao,
+            contato_telefone,
+            contato_email,
+            instagram,
             num_funcionarios
         ))
 
@@ -780,15 +1046,17 @@ def personalizacao_barbearia():
             cursor.execute("""
                 INSERT INTO DIAS_DE_SERVICO (
                     ID_USUARIO,
+                    DIAS,
                     ENTRADA_MANHA,
                     SAIDA_MANHA,
                     ENTRADA_TARDE,
                     SAIDA_TARDE
                 )
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?)
                 RETURNING ID_DIA
             """, (
                 id_usuario,
+                dia,
                 entrada_manha,
                 saida_manha,
                 entrada_tarde,
@@ -823,9 +1091,9 @@ def personalizacao_barbearia():
                 f'funcionarios[{i}][descricao]'
             )
 
-            dia_funcionario = request.form.get(
-                f'funcionarios[{i}][dia]'
-            )
+            # O frontend envia os dias como "segunda,terca". Mantemos a
+            # leitura de "dia" para compatibilidade com cadastros antigos.
+            dias_funcionario = request.form.get(f'funcionarios[{i}][dias]') or request.form.get(f'funcionarios[{i}][dia]') or ''
 
 
             if not nome:
@@ -833,45 +1101,7 @@ def personalizacao_barbearia():
                 continue
 
 
-            id_dias = None
-
-
-            # ------------------------------------------------
-            # USAR NOME DO DIA
-            # ------------------------------------------------
-
-            if dia_funcionario:
-
-                id_dias = ids_dias.get(
-                    dia_funcionario
-                )
-
-
-            # ------------------------------------------------
-            # USAR ID_DIAS DIRETAMENTE
-            # ------------------------------------------------
-
-            if not id_dias:
-
-                id_dias_form = request.form.get(
-                    f'funcionarios[{i}][id_dias]'
-                )
-
-
-                if id_dias_form:
-
-                    try:
-
-                        id_dias = int(
-                            id_dias_form
-                        )
-
-                    except (
-                        ValueError,
-                        TypeError
-                    ):
-
-                        id_dias = None
+            ids_dias_funcionario = [ids_dias[dia.strip()] for dia in dias_funcionario.split(',') if dia.strip() in ids_dias]
 
 
             # ==================================================
@@ -880,14 +1110,12 @@ def personalizacao_barbearia():
 
             cursor.execute("""
                 INSERT INTO FUNCIONARIO (
-                    ID_DIAS,
                     NOME,
                     DESCRICAO
                 )
-                VALUES (?, ?, ?)
+                VALUES (?, ?)
                 RETURNING ID_FUNCIONARIO
             """, (
-                id_dias,
                 nome,
                 descricao
             ))
@@ -896,6 +1124,8 @@ def personalizacao_barbearia():
             id_funcionario = (
                 cursor.fetchone()[0]
             )
+
+            vincular_dias_funcionario(cursor, id_funcionario, ids_dias_funcionario)
 
 
             # ==================================================
@@ -933,8 +1163,8 @@ def personalizacao_barbearia():
                 'id_funcionario':
                     id_funcionario,
 
-                'id_dias':
-                    id_dias,
+                'dias':
+                    ids_dias_funcionario,
 
                 'nome':
                     nome,
@@ -1197,7 +1427,7 @@ def editar_personalizacao():
         # AUTENTICAÇÃO
         # ==================================================
 
-        id_usuario = pegar_id_usuario()
+        id_usuario = pegar_id_barbearia_alvo()
 
 
         if not id_usuario:
@@ -1281,6 +1511,9 @@ def editar_personalizacao():
             'cor_terciaria'
         )
 
+        cor_texto_primario = dados.get('cor_texto_primario')
+        cor_texto_secundario = dados.get('cor_texto_secundario')
+
         historia = dados.get(
             'historia'
         )
@@ -1288,6 +1521,10 @@ def editar_personalizacao():
         localizacao = dados.get(
             'localizacao'
         )
+
+        contato_telefone = dados.get('contato_telefone')
+        contato_email = dados.get('contato_email')
+        instagram = dados.get('instagram')
 
 
         # ==================================================
@@ -1300,15 +1537,25 @@ def editar_personalizacao():
                 COR_PRIMARIA = ?,
                 COR_SECUNDARIA = ?,
                 COR_TERCIARIA = ?,
+                COR_TEXTO_PRIMARIO = ?,
+                COR_TEXTO_SECUNDARIO = ?,
                 TEXTO = ?,
-                LOCALIZACAO = ?
+                LOCALIZACAO = ?,
+                CONTATO_TELEFONE = ?,
+                CONTATO_EMAIL = ?,
+                INSTAGRAM = ?
             WHERE ID_USUARIO = ?
         """, (
             cor_primaria,
             cor_secundaria,
             cor_terciaria,
+            cor_texto_primario,
+            cor_texto_secundario,
             historia,
             localizacao,
+            contato_telefone,
+            contato_email,
+            instagram,
             id_usuario
         ))
 
@@ -1318,10 +1565,10 @@ def editar_personalizacao():
         # ==================================================
 
         cursor.execute("""
-            SELECT F.ID_FUNCIONARIO
+            SELECT DISTINCT F.ID_FUNCIONARIO
             FROM FUNCIONARIO F
-            INNER JOIN DIAS_DE_SERVICO D
-                ON D.ID_DIA = F.ID_DIAS
+            INNER JOIN FUNCIONARIO_DIA FD ON FD.ID_FUNCIONARIO = F.ID_FUNCIONARIO
+            INNER JOIN DIAS_DE_SERVICO D ON D.ID_DIA = FD.ID_DIA
             WHERE D.ID_USUARIO = ?
         """, (
             id_usuario,
@@ -1345,6 +1592,12 @@ def editar_personalizacao():
             """, (
                 funcionario[0],
             ))
+
+            # Remove os vínculos de dias antes de excluir o funcionário.
+            cursor.execute("""
+                DELETE FROM FUNCIONARIO_DIA
+                WHERE ID_FUNCIONARIO = ?
+            """, (funcionario[0],))
 
 
         # ==================================================
@@ -1427,15 +1680,17 @@ def editar_personalizacao():
             cursor.execute("""
                 INSERT INTO DIAS_DE_SERVICO (
                     ID_USUARIO,
+                    DIAS,
                     ENTRADA_MANHA,
                     SAIDA_MANHA,
                     ENTRADA_TARDE,
                     SAIDA_TARDE
                 )
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?)
                 RETURNING ID_DIA
             """, (
                 id_usuario,
+                dia,
                 entrada_manha,
                 saida_manha,
                 entrada_tarde,
@@ -1495,9 +1750,7 @@ def editar_personalizacao():
                 f'funcionarios[{i}][descricao]'
             )
 
-            dia_funcionario = dados.get(
-                f'funcionarios[{i}][dia]'
-            )
+            dias_funcionario = dados.get(f'funcionarios[{i}][dias]') or dados.get(f'funcionarios[{i}][dia]') or ''
 
 
             if not nome:
@@ -1505,41 +1758,7 @@ def editar_personalizacao():
                 continue
 
 
-            id_dias = None
-
-
-            if dia_funcionario:
-
-                id_dias = ids_dias.get(
-                    dia_funcionario
-                )
-
-
-            # ------------------------------------------------
-            # ID_DIAS DIRETO
-            # ------------------------------------------------
-
-            if not id_dias:
-
-                id_dias_form = dados.get(
-                    f'funcionarios[{i}][id_dias]'
-                )
-
-
-                if id_dias_form:
-
-                    try:
-
-                        id_dias = int(
-                            id_dias_form
-                        )
-
-                    except (
-                        ValueError,
-                        TypeError
-                    ):
-
-                        id_dias = None
+            ids_dias_funcionario = [ids_dias[dia.strip()] for dia in dias_funcionario.split(',') if dia.strip() in ids_dias]
 
 
             # ==================================================
@@ -1548,14 +1767,12 @@ def editar_personalizacao():
 
             cursor.execute("""
                 INSERT INTO FUNCIONARIO (
-                    ID_DIAS,
                     NOME,
                     DESCRICAO
                 )
-                VALUES (?, ?, ?)
+                VALUES (?, ?)
                 RETURNING ID_FUNCIONARIO
             """, (
-                id_dias,
                 nome,
                 descricao
             ))
@@ -1564,6 +1781,8 @@ def editar_personalizacao():
             id_funcionario = (
                 cursor.fetchone()[0]
             )
+
+            vincular_dias_funcionario(cursor, id_funcionario, ids_dias_funcionario)
 
 
             # ==================================================
@@ -1809,7 +2028,7 @@ def buscar_personalizacao():
         # AUTENTICAÇÃO
         # ==================================================
 
-        id_usuario = pegar_id_usuario()
+        id_usuario = pegar_id_barbearia_alvo()
 
 
         if not id_usuario:
@@ -1849,8 +2068,13 @@ def buscar_personalizacao():
                 COR_PRIMARIA,
                 COR_SECUNDARIA,
                 COR_TERCIARIA,
+                COR_TEXTO_PRIMARIO,
+                COR_TEXTO_SECUNDARIO,
                 TEXTO,
                 LOCALIZACAO,
+                CONTATO_TELEFONE,
+                CONTATO_EMAIL,
+                INSTAGRAM,
                 NUM_FUNCIONARIOS
             FROM PERSONALIZACAO
             WHERE ID_USUARIO = ?
@@ -1900,6 +2124,7 @@ def buscar_personalizacao():
         cursor.execute("""
             SELECT
                 ID_DIA,
+                DIAS,
                 ENTRADA_MANHA,
                 SAIDA_MANHA,
                 ENTRADA_TARDE,
@@ -1927,24 +2152,27 @@ def buscar_personalizacao():
                 'id_dia':
                     dia[0],
 
-                'entrada_manha':
-                    str(dia[1])
-                    if dia[1]
-                    else None,
+                'dia':
+                    dia[1],
 
-                'saida_manha':
+                'entrada_manha':
                     str(dia[2])
                     if dia[2]
                     else None,
 
-                'entrada_tarde':
+                'saida_manha':
                     str(dia[3])
                     if dia[3]
                     else None,
 
-                'saida_tarde':
+                'entrada_tarde':
                     str(dia[4])
                     if dia[4]
+                    else None,
+
+                'saida_tarde':
+                    str(dia[5])
+                    if dia[5]
                     else None
 
             })
@@ -1955,19 +2183,13 @@ def buscar_personalizacao():
         # ==================================================
 
         cursor.execute("""
-            SELECT
-                F.ID_FUNCIONARIO,
-                F.ID_DIAS,
-                F.NOME,
-                F.DESCRICAO
+            SELECT DISTINCT F.ID_FUNCIONARIO, F.NOME, F.DESCRICAO
             FROM FUNCIONARIO F
-            INNER JOIN DIAS_DE_SERVICO D
-                ON D.ID_DIA = F.ID_DIAS
+            INNER JOIN FUNCIONARIO_DIA FD ON FD.ID_FUNCIONARIO = F.ID_FUNCIONARIO
+            INNER JOIN DIAS_DE_SERVICO D ON D.ID_DIA = FD.ID_DIA
             WHERE D.ID_USUARIO = ?
             ORDER BY F.ID_FUNCIONARIO
-        """, (
-            id_usuario,
-        ))
+        """, (id_usuario,))
 
 
         funcionarios_db = (
@@ -2009,20 +2231,28 @@ def buscar_personalizacao():
                 cursor.fetchall()
             )
 
+            # A resposta inclui todos os dias selecionados para o frontend.
+            cursor.execute("""
+                SELECT ID_DIA FROM FUNCIONARIO_DIA
+                WHERE ID_FUNCIONARIO = ?
+                ORDER BY ID_DIA
+            """, (id_funcionario,))
+            dias_funcionario = [linha[0] for linha in cursor.fetchall()]
+
 
             funcionarios.append({
 
                 'id_funcionario':
                     funcionario[0],
 
-                'id_dias':
-                    funcionario[1],
+                'dias':
+                    dias_funcionario,
 
                 'nome':
-                    funcionario[2],
+                    funcionario[1],
 
                 'descricao':
-                    funcionario[3],
+                    funcionario[2],
 
                 'servicos': [
 
@@ -2106,10 +2336,16 @@ def buscar_personalizacao():
         # RESPOSTA
         # ==================================================
 
+        cursor.execute('SELECT NOME FROM USUARIO WHERE ID_USUARIO = ?', (id_usuario,))
+        usuario_barbearia = cursor.fetchone()
+
         return jsonify({
 
             'personalizado':
                 True,
+
+            'nome_barbearia':
+                usuario_barbearia[0] if usuario_barbearia else 'Barbearia',
 
             'personalizacao': {
 
@@ -2128,14 +2364,29 @@ def buscar_personalizacao():
                 'cor_terciaria':
                     personalizacao[4],
 
-                'historia':
+                'cor_texto_primario':
                     personalizacao[5],
 
-                'localizacao':
+                'cor_texto_secundario':
                     personalizacao[6],
 
+                'historia':
+                    personalizacao[7],
+
+                'localizacao':
+                    personalizacao[8],
+
+                'contato_telefone':
+                    personalizacao[9],
+
+                'contato_email':
+                    personalizacao[10],
+
+                'instagram':
+                    personalizacao[11],
+
                 'num_funcionarios':
-                    personalizacao[7]
+                    personalizacao[12]
 
             },
 
