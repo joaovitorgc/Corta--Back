@@ -655,14 +655,24 @@ def criar_servico_barbearia():
         con = conectar_banco()
         cursor = con.cursor()
 
-        cursor.execute('SELECT NOME_SERVICO FROM SERVICO WHERE lower(trim(NOME_SERVICO)) = ?;', (nome.lower(),))
+        cursor.execute(
+            '''
+            SELECT NOME_SERVICO
+            FROM SERVICO
+            WHERE LOWER(TRIM(NOME_SERVICO)) = ?
+            ''',
+            (nome.lower(),)
+        )
+
         existe = cursor.fetchone()
-        if existe[0]:
-            if existe[0].lower() == nome.lower():
-                return jsonify({
-                    "mensagem": {"informacao": "Esse serviço já existe não pode se cadastrado novamente",
-                                 "tipo": 'erro'}
-                })
+
+        if existe:
+            return jsonify({
+                "mensagem": {
+                    "informacao": "Esse serviço já existe e não pode ser cadastrado novamente.",
+                    "tipo": "erro"
+                }
+            }), 400
 
         cursor.execute('SELECT COALESCE(MAX(ID_SERVICO), 0) + 1 FROM SERVICO')
         id_servico = cursor.fetchone()[0]
@@ -681,6 +691,51 @@ def criar_servico_barbearia():
         if con:
             con.rollback()
         return jsonify({'mensagem': {'informacao': 'Erro ao adicionar serviço.', 'tipo': 'erro'}, 'detalhes': str(erro)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if con:
+            con.close()
+
+
+@app.route('/barbearia/servicos/<int:id_servico>', methods=['PUT'])
+def editar_servico_barbearia(id_servico):
+    con = None
+    cursor = None
+    try:
+        id_usuario = pegar_id_barbearia_alvo()
+        if not id_usuario:
+            return jsonify({'mensagem': {'informacao': 'Usuário não autenticado.', 'tipo': 'erro'}}), 401
+        dados = request.get_json(silent=True) or request.form
+        nome = str(dados.get('nome', '')).strip()
+        descricao = str(dados.get('descricao', '')).strip() or None
+        preco = dados.get('preco')
+        duracao = dados.get('duracao')
+        if not nome:
+            return jsonify({'mensagem': {'informacao': 'Nome do serviço é obrigatório.', 'tipo': 'erro'}}), 400
+        try:
+            preco_texto = str(preco).strip()
+            preco = float(preco_texto.replace('.', '').replace(',', '.') if ',' in preco_texto else preco_texto)
+            duracao = int(duracao)
+        except (TypeError, ValueError):
+            return jsonify({'mensagem': {'informacao': 'Preço e duração válidos são obrigatórios.', 'tipo': 'erro'}}), 400
+        if preco < 0 or duracao <= 0:
+            return jsonify({'mensagem': {'informacao': 'Preço e duração devem ser positivos.', 'tipo': 'erro'}}), 400
+        con = conectar_banco()
+        cursor = con.cursor()
+        cursor.execute('SELECT ID_SERVICO FROM SERVICO WHERE ID_SERVICO = ? AND ID_USUARIO = ?', (id_servico, id_usuario))
+        if not cursor.fetchone():
+            return jsonify({'mensagem': {'informacao': 'Serviço não encontrado.', 'tipo': 'erro'}}), 404
+        cursor.execute('SELECT ID_SERVICO FROM SERVICO WHERE LOWER(TRIM(NOME_SERVICO)) = ? AND ID_SERVICO <> ? AND ID_USUARIO = ?', (nome.lower(), id_servico, id_usuario))
+        if cursor.fetchone():
+            return jsonify({'mensagem': {'informacao': 'Já existe outro serviço com esse nome.', 'tipo': 'erro'}}), 400
+        cursor.execute('UPDATE SERVICO SET NOME_SERVICO = ?, PRECO = ?, DURACAO = ?, DESCRICAO_BREVE = ? WHERE ID_SERVICO = ? AND ID_USUARIO = ?', (nome, preco, duracao, descricao, id_servico, id_usuario))
+        con.commit()
+        return jsonify({'mensagem': {'informacao': 'Serviço atualizado com sucesso.', 'tipo': 'sucesso'}, 'servico': {'id_servico': id_servico, 'nome': nome, 'preco': preco, 'duracao': duracao, 'descricao': descricao}}), 200
+    except Exception as erro:
+        if con:
+            con.rollback()
+        return jsonify({'mensagem': {'informacao': 'Erro ao editar serviço.', 'tipo': 'erro'}, 'detalhes': str(erro)}), 500
     finally:
         if cursor:
             cursor.close()
