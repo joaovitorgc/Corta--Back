@@ -570,12 +570,12 @@ def listar_barbearias_disponiveis():
         resultado = []
         pasta = criar_pasta_barbearia()
         for id_usuario, nome, localizacao, id_personalizacao in cursor.fetchall():
-            # A primeira foto cadastrada é usada como capa do card.
+            # A logo cadastrada é usada como imagem do card.
             imagem = None
             for extensao in EXTENSOES_PERMITIDAS:
-                caminho = os.path.join(pasta, f'{id_usuario}_1.{extensao}')
+                caminho = os.path.join(pasta, f'{id_usuario}.{extensao}')
                 if os.path.exists(caminho):
-                    imagem = f'/uploads/barbearia/{id_usuario}_1.{extensao}'
+                    imagem = f'/uploads/barbearia/{id_usuario}.{extensao}'
                     break
 
             # Os horários são salvos por dia; o card exibe um resumo curto.
